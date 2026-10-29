@@ -1,0 +1,11 @@
+occurred_at,type,symbol,name,asset_class,sleeve,quantity,price,amount,fee,notes,external_ref
+2026-02-02,deposit,,,,,,,500000,,Illustrative capital contribution,template-dep-1
+2026-02-03,buy,ETH,Ether,crypto,crypto,10,2500,,15,"Illustrative purchase, with a quoted note",template-buy-eth
+2026-02-10,buy,NVDA,NVIDIA,stock,stocks,20,120,,0,Illustrative stock purchase,template-buy-nvda
+2026-02-12,deposit,TBILL-BASKET,Treasury ladder basket,thematic_basket,thematic,1000,100,,0,Illustrative in-kind basket,template-dep-basket
+2026-03-01,yield,ETH,,,,0.05,,,,Illustrative staking yield carried at zero cost,template-yield-eth
+2026-03-01,yield,,,,,,,2500,,Illustrative cash yield,template-yield-cash
+2026-03-02,fee,ETH,,,,0.01,,,,Illustrative in-kind network fee,template-fee-eth
+2026-03-02,fee,,,,,,,25,,Illustrative cash fee,template-fee-cash
+2026-03-15,sell,NVDA,,,,5,130,,0,Illustrative sale,template-sell-nvda
+2026-04-01,withdrawal,,,,,,,10000,,Illustrative cash distribution,template-wd-1

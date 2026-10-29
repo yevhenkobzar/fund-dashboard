@@ -1,0 +1,204 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum AssetClass {
+  CRYPTO
+  STOCK
+  THEMATIC_BASKET
+  DEFI_YIELD
+}
+
+enum Sleeve {
+  CRYPTO
+  STOCKS
+  THEMATIC
+  DEFI_YIELD
+  ARBITRAGE
+}
+
+enum TxType {
+  BUY
+  SELL
+  DEPOSIT
+  WITHDRAWAL
+  FEE
+  YIELD
+}
+
+enum ArticleType {
+  MARKET_REVIEW
+  RESEARCH
+}
+
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  role          Role      @default(VIEWER)
+  disabledAt    DateTime?
+  isExample     Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+  articles      Article[]
+  apiTokens     ApiToken[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Instrument {
+  id             String     @id @default(cuid())
+  symbol         String     @unique
+  name           String
+  assetClass     AssetClass
+  sleeve         Sleeve
+  currency       String     @default("USD")
+  currentPrice   String?
+  priceUpdatedAt DateTime?
+  priceUpdatedBy String?
+  notes          String?
+  isExample      Boolean    @default(false)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  transactions   Transaction[]
+}
+
+model Transaction {
+  id             String    @id @default(cuid())
+  occurredAt     DateTime
+  type           TxType
+  instrumentId   String?
+  instrument     Instrument? @relation(fields: [instrumentId], references: [id])
+  quantity       String?
+  price          String?
+  amount         String?
+  fee            String    @default("0")
+  notes          String?
+  externalRef    String?   @unique
+  isExample      Boolean   @default(false)
+  voidedAt       DateTime?
+  voidedByEmail  String?
+  createdByEmail String?
+  updatedByEmail String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([occurredAt])
+  @@index([instrumentId])
+}
+
+model NavSnapshot {
+  id                String    @id @default(cuid())
+  asOf              DateTime
+  aum               String
+  sharesOutstanding String?
+  navPerShare       String?
+  note              String?
+  isExample         Boolean   @default(false)
+  voidedAt          DateTime?
+  createdByEmail    String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([asOf])
+}
+
+model Article {
+  id          String        @id @default(cuid())
+  type        ArticleType
+  title       String
+  slug        String
+  excerpt     String?
+  content     String
+  status      ArticleStatus @default(DRAFT)
+  publishedAt DateTime?
+  authorId    String
+  author      User          @relation(fields: [authorId], references: [id])
+  isExample   Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([type, slug])
+  @@index([type, status])
+}
+
+model ApiToken {
+  id          String    @id @default(cuid())
+  name        String
+  tokenHash   String    @unique
+  tokenPrefix String
+  createdById String
+  creator     User      @relation(fields: [createdById], references: [id])
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+model AuditEvent {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actorEmail String?
+  action     String
+  entityType String
+  entityId   String?
+  summary    String
+  before     Json?
+  after      Json?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+}
