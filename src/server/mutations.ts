@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { ArticleType, AssetClass, Prisma, Sleeve, TxType } from "@prisma/client";
 import { signIn } from "@/auth";
+import { accountsEnabled } from "@/lib/accounts";
 import { plainExcerpt, slugify } from "@/lib/articles/text";
 import { inviteDecision, roleChangeAllowed } from "@/lib/auth/permissions";
 import { generateApiToken, tokenPepper } from "@/lib/auth/tokens";
@@ -574,6 +575,7 @@ export async function deleteArticle(formData: FormData) {
 }
 
 export async function inviteMember(formData: FormData) {
+  if (!accountsEnabled()) redirect("/");
   const user = await requireAction("manage_team");
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const name = String(formData.get("name") ?? "").trim();
@@ -604,6 +606,7 @@ export async function inviteMember(formData: FormData) {
 }
 
 export async function changeRole(formData: FormData) {
+  if (!accountsEnabled()) redirect("/");
   const actor = await requireAction("manage_team");
   const id = String(formData.get("id") ?? "");
   const next = parseRole(String(formData.get("role") ?? ""));
@@ -638,6 +641,7 @@ export async function changeRole(formData: FormData) {
 }
 
 export async function revokeAccess(formData: FormData) {
+  if (!accountsEnabled()) redirect("/");
   const actor = await requireAction("manage_team");
   const id = String(formData.get("id") ?? "");
   const target = await prisma.user.findUnique({ where: { id } });
@@ -711,6 +715,7 @@ export async function revokeToken(formData: FormData) {
 }
 
 export async function requestMagicLink(formData: FormData) {
+  if (!accountsEnabled()) redirect("/login");
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const directory = await prisma.user.findMany({ select: { email: true, disabledAt: true } });
   const decision = inviteDecision(

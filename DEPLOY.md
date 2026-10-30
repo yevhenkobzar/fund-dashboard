@@ -1,128 +1,87 @@
-# Deploy the desk on Vercel
+# Deploy the desk on Vercel Hobby
 
-Deploy from this Origin repository. Do not mirror the project to GitHub, and do not import it as a GitHub repository. Vercel connects to Origin directly.
+Deploy from GitHub. Import `yevhenkobzar/fund-dashboard` in a Vercel Hobby team. A Hobby plan is enough.
 
-Origin repositories are private. Vercel only deploys them from a **Pro or Enterprise** team. A Hobby team cannot deploy this repo.
+The production database is Postgres on Neon. Local development uses the Postgres service in `docker-compose.yml`. The build in `vercel.json` runs:
 
-The production database is Postgres (Neon, including Neon created from the Vercel dashboard). Local development stays on Postgres too, usually the Docker database in `docker-compose.yml`. The Vercel build runs `prisma generate`, `prisma migrate deploy`, `prisma db seed`, and `next build`. With `SEED_EXAMPLE_DATA=false`, that seed creates only the admin from `ADMIN_EMAIL`. It does not load the example book, editor, or viewer.
+```bash
+prisma generate && prisma migrate deploy && prisma db seed && next build
+```
 
-No passwords are stored. Sign-in is a Resend magic link.
+Leave that build command as it is.
 
-## 1. Use a Vercel Pro or Enterprise team
+Sign-in for v1 is one shared access code from `SITE_ACCESS_CODE`. The unlocked session is the owner admin from `ADMIN_EMAIL` (`kobzar.z05@gmail.com`). That person is the only editor. There is no magic-link email and no Resend account. Per-user accounts, roles, and invites remain in the code behind `ACCOUNTS_ENABLED=false`.
 
-Open the Vercel dashboard and select the team that will own the project. If the team is on Hobby, upgrade it before continuing. Origin deploys are rejected on Hobby.
+Do not commit `.env` or put the real access code in the repository.
 
-## 2. Create the Resend account and verify a sender domain
+## 1. Create the Neon database
 
-Magic links in production are sent by Resend. The address in `EMAIL_FROM` must be on a domain you control and have verified. Resend’s `onboarding@resend.dev` sandbox only delivers to your own Resend login, so the editor would never receive a link.
+You need two connection strings:
 
-1. Create an account at [resend.com](https://resend.com).
-2. Open **Domains** and add the domain you will send from, such as `yourfund.com`.
-3. At the DNS host for that domain, add every record Resend shows (SPF and DKIM, and any other record on that page). Copy the host and value exactly.
-4. In Resend, wait until the domain status is **Verified**.
-5. Open **API Keys**, create a key with permission to send email, and copy it once. You will paste it into Vercel as `RESEND_API_KEY`. Do not commit it.
-6. Choose the from-address you will use, for example `Fund Desk <desk@yourfund.com>`. The domain must be the verified one.
+- **Pooled** (`DATABASE_URL`). The hostname contains `-pooler`. The running app uses this.
+- **Direct** (`DATABASE_URL_UNPOOLED`). The hostname does not contain `-pooler`. Prisma Migrate uses this.
 
-## 3. Create the Postgres database
+1. Create a project at [neon.tech](https://neon.tech), or from the Vercel project open **Storage** and connect **Neon**.
+2. Copy the pooled string and the direct string. Both should include `sslmode=require`.
+3. On the pooled string only, append `&pgbouncer=true` if that flag is missing. Leave the direct string without `pgbouncer`.
 
-Use one of these. You need two connection strings:
+If you connect Neon from the Vercel project after it exists, the integration can inject `DATABASE_URL` and `DATABASE_URL_UNPOOLED`. Confirm both are present, add `pgbouncer=true` to the pooled URL only, then redeploy.
 
-- **Pooled** (`DATABASE_URL`), hostname contains `-pooler`. The running app uses this.
-- **Direct** (`DATABASE_URL_UNPOOLED`), hostname does not contain `-pooler`. Prisma Migrate uses this.
-
-### Neon from the Neon console
-
-1. Create a project at [neon.tech](https://neon.tech).
-2. Open **Connect** and copy the **pooled** connection string and the **direct** connection string. Both should include `sslmode=require`.
-3. On the pooled string only, if `pgbouncer=true` is missing, append it:  
-   `...sslmode=require&pgbouncer=true`  
-   Leave the direct string without `pgbouncer`.
-
-You will paste both strings into Vercel in the next step. Do not put them in the repo.
-
-### Neon from the Vercel dashboard
-
-You can instead attach Neon after the Vercel project exists:
-
-1. In the Vercel project, open **Storage** and create or connect a **Neon** database.
-2. Connect it to this project for **Production** and **Preview**.
-3. Leave preview branching off for the first deploy so there is one database to sign in to.
-4. The integration injects `DATABASE_URL` (pooled) and `DATABASE_URL_UNPOOLED` (direct). Confirm both exist under **Settings → Environment Variables**.
-5. If `DATABASE_URL` has no `pgbouncer=true`, edit that variable and append `&pgbouncer=true`. Do not add that flag to `DATABASE_URL_UNPOOLED`.
-
-If the project was created before the database was connected, redeploy after the variables exist. The first build has to see them.
-
-## 4. Import the Origin repo and set every environment variable
+## 2. Import the GitHub repository
 
 1. In Vercel, choose **Add New… → Project**.
-2. Choose **Continue with Origin**. If Origin is not listed, connect the Origin team from that screen. Do not choose GitHub.
-3. Select this repository. The framework preset is **Next.js**. The root directory is the repository root. Leave the production branch as `main`.
-4. Do not override the build command. `vercel.json` already runs:
+2. Under GitHub, import `yevhenkobzar/fund-dashboard`. The repository should be private.
+3. Framework preset: **Next.js**. Root directory: the repository root. Production branch: `main`.
+4. Do not change the build command. `vercel.json` already migrates, seeds, and builds.
 
-   ```bash
-   prisma generate && prisma migrate deploy && prisma db seed && next build
-   ```
+## 3. Set the environment variables
 
-5. Before the first deploy, add these variables for **Production** and **Preview**. Values below are the names and what to put in them, not real secrets.
+Add these for **Production** and **Preview** before the first successful deploy. The values here are names and placeholders, not real secrets.
 
 | Name | Value |
 | --- | --- |
-| `DATABASE_URL` | Pooled Neon URL, with `sslmode=require` and `pgbouncer=true`. Skip this row if the Neon integration already created it, then only append `pgbouncer=true` if it is missing. |
-| `DATABASE_URL_UNPOOLED` | Direct Neon URL, with `sslmode=require` and without `pgbouncer`. Skip this row if the integration already created it. |
-| `AUTH_SECRET` | A long random string from `openssl rand -base64 32`. At least 16 characters. |
-| `AUTH_URL` | The production origin you will use, such as `https://your-project.vercel.app`. No trailing slash. Match the project name you are about to create, or your custom domain. |
+| `DATABASE_URL` | Pooled Neon URL with `sslmode=require` and `pgbouncer=true`. Skip if Neon already created it, then only add the flag if it is missing. |
+| `DATABASE_URL_UNPOOLED` | Direct Neon URL with `sslmode=require` and without `pgbouncer`. Skip if Neon already created it. |
+| `AUTH_SECRET` | `openssl rand -base64 32`. At least 16 characters. This signs the session cookie and API tokens. |
+| `SITE_ACCESS_CODE` | `openssl rand -base64 24`. The shared code for the gate. Do not commit it. |
+| `AUTH_URL` | `https://your-project.vercel.app` with no trailing slash. Change it if you add a custom domain, then redeploy. |
 | `AUTH_TRUST_HOST` | `true` |
-| `ADMIN_EMAIL` | Your real email. The seed invites this address as admin. No password. |
-| `ADMIN_NAME` | Your name, shown in the desk. Optional. |
-| `FUND_NAME` | The fund name to show in the sidebar. Use `[Fund Name]` until you decide. |
-| `EMAIL_PROVIDER` | `resend` |
-| `EMAIL_FROM` | The verified sender, for example `Fund Desk <desk@yourfund.com>`. |
-| `RESEND_API_KEY` | The Resend API key from step 2. |
+| `ADMIN_EMAIL` | `kobzar.z05@gmail.com` |
+| `ADMIN_NAME` | Your name. Optional. |
+| `FUND_NAME` | The name in the sidebar, or `[Fund Name]`. |
+| `ACCOUNTS_ENABLED` | `false` |
 | `SEED_EXAMPLE_DATA` | `false` |
 
-Do not set `SEED_EXAMPLE_DATA` to `true` on Vercel. An unset value also stays empty on Vercel, but set `false` so the intent is visible. The seed then upserts `ADMIN_EMAIL` as admin and stops. It does not create `editor@example.com` or the sample book.
+Leave `EMAIL_PROVIDER`, `EMAIL_FROM`, `RESEND_API_KEY`, and the `SMTP_*` variables unset. They are only used if you later set `ACCOUNTS_ENABLED=true`.
 
-`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, and `SMTP_PASSWORD` are unused when `EMAIL_PROVIDER=resend`. Leave them unset.
+`SEED_EXAMPLE_DATA=false` makes the build seed create only `kobzar.z05@gmail.com` as admin. It does not load the example book.
 
-## 5. Deploy
+## 4. Deploy
 
 Click **Deploy**. The build applies the Postgres migration and seeds the admin.
 
-If the build fails because the database variables were missing, connect Neon, confirm the variables, then open **Deployments** and redeploy with the build cache turned off.
+If the first build ran before the database variables existed, connect Neon, confirm the variables, then redeploy with the build cache off.
 
-If the migration fails on `CREATE SCHEMA "public"`, the Neon role cannot create schemas. Delete that one statement from a follow-up only if Neon support tells you to. The generated migration uses `IF NOT EXISTS`, which succeeds on a normal Neon database.
+Open the production URL when the deployment is ready.
 
-When the deployment is ready, open the production URL. If you then attach a custom domain, change `AUTH_URL` to that origin and redeploy so magic links use the domain you actually open.
+## 5. Sign in
 
-## 6. Sign in as admin
+1. Open the production site.
+2. Enter `SITE_ACCESS_CODE`.
+3. The session cookie is httpOnly and signed with `AUTH_SECRET`. It lasts 14 days. This session is the owner: it can edit the book, publish both article sections, and manage API tokens.
+4. The overview is empty until you enter trades. There is no example banner.
 
-1. Open the production URL from the deployment.
-2. Enter `ADMIN_EMAIL` and request a link.
-3. Open the message from Resend and follow the link. It expires in 24 hours.
-4. You should land on an empty overview: no example banner, no sample positions, and no sample articles.
+Five wrong codes from the same address pause further attempts for about ten minutes. The limit is per server instance, which is enough to slow guessing.
 
-If the message never arrives, check that the domain is verified, `EMAIL_FROM` uses that domain, `RESEND_API_KEY` is set, and `AUTH_URL` is the site you opened. Then request a new link.
+API tokens stay under **API tokens**. Create one there if an agent should draft articles. The token is shown once and stored only as a hash.
 
-## 7. Invite the editor
-
-1. While signed in as the admin, open **Team**.
-2. Enter the editor’s email.
-3. Set **Role** to **Editor**. New invites default to viewer, so change it before sending.
-4. Click **Invite**.
-5. The editor opens the same production URL, enters that email, and uses the Resend link.
-
-The editor can add trades, import CSV, update prices, record snapshots, and draft or publish market reviews and research. They cannot open Team or API tokens, and they cannot change roles.
-
-## What each later deploy does
-
-A push to `main` deploys production. Vercel runs migrations against the direct URL, then the seed. The seed keeps `ADMIN_EMAIL` as an active admin and does not replace a book you have entered. Preview deployments run the same build. Keep `SEED_EXAMPLE_DATA=false` on Preview as well.
+Team invites stay off while `ACCOUNTS_ENABLED` is false. Turn that flag on later, set an email provider, and redeploy when you want separate editor and viewer accounts again.
 
 ## Local development
 
-This is not required to deploy.
-
 ```bash
 cp .env.example .env
+# Set AUTH_SECRET, SITE_ACCESS_CODE, and leave ACCOUNTS_ENABLED=false.
 docker compose up -d --wait
 npm install
 npx prisma migrate deploy
@@ -130,4 +89,4 @@ npm run db:seed
 npm run dev
 ```
 
-`npm run db:setup` starts Postgres, migrates, and seeds. With `SEED_EXAMPLE_DATA=true` (the local example default when the variable is unset and you are not on Vercel), the seed loads the illustrative book. Set it to `false` for an empty local desk. The Docker user and password `desk` exist only for that local database.
+`npm run db:setup` starts Postgres, migrates, and seeds. With `SEED_EXAMPLE_DATA` unset outside Vercel, the local seed still loads the illustrative book plus the admin from `ADMIN_EMAIL`.

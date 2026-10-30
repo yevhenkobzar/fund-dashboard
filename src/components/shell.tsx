@@ -43,9 +43,20 @@ const ITEMS: Item[] = [
   { href: "/tokens", label: "API tokens", icon: KeyRound, action: "manage_tokens" },
 ];
 
-function NavLinks({ role, onNavigate }: { role: Role; onNavigate?: () => void }) {
+function NavLinks({
+  role,
+  showTeam,
+  onNavigate,
+}: {
+  role: Role;
+  showTeam: boolean;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
-  const visible = ITEMS.filter((item) => !item.action || authorize(role, item.action));
+  const visible = ITEMS.filter((item) => {
+    if (item.action === "manage_team" && !showTeam) return false;
+    return !item.action || authorize(role, item.action);
+  });
   return (
     <nav className="flex flex-col gap-1">
       {visible.map((item) => {
@@ -73,11 +84,13 @@ function NavLinks({ role, onNavigate }: { role: Role; onNavigate?: () => void })
 export function Shell({
   fund,
   user,
+  showTeam,
   logout,
   children,
 }: {
   fund: string;
   user: { email: string; name: string | null; role: Role };
+  showTeam: boolean;
   logout: () => Promise<void>;
   children: React.ReactNode;
 }) {
@@ -89,7 +102,7 @@ export function Shell({
           <p className="text-[11px] uppercase tracking-[0.18em] text-[#c4b49a]">Partnership desk</p>
           <p className="mt-1 font-serif text-2xl leading-tight text-white">{fund}</p>
         </div>
-        <NavLinks role={user.role} />
+        <NavLinks role={user.role} showTeam={showTeam} />
         <div className="mt-auto px-3 pt-6">
           <p className="truncate text-sm text-white">{user.name || user.email}</p>
           <p className="truncate text-xs text-[#b7b0a4]">{user.email}</p>
@@ -116,7 +129,7 @@ export function Shell({
           <DialogContent className="bg-ink text-[#e7e1d6]">
             <DialogTitle className="font-serif text-2xl text-white">{fund}</DialogTitle>
             <div className="mt-4">
-              <NavLinks role={user.role} onNavigate={() => setOpen(false)} />
+              <NavLinks role={user.role} showTeam={showTeam} onNavigate={() => setOpen(false)} />
             </div>
             <form action={logout} className="mt-6">
               <button className="text-sm text-[#d9d2c6]" type="submit">Sign out</button>

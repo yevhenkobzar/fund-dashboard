@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { accountsEnabled } from "@/lib/accounts";
 import { ROLE_LABEL, ROLES } from "@/lib/domain";
 import { prisma } from "@/lib/db";
 import { formatDate } from "@/lib/format";
@@ -16,6 +18,7 @@ export default async function TeamPage({
 }: {
   searchParams: Promise<{ error?: string; invited?: string; updated?: string; revoked?: string }>;
 }) {
+  if (!accountsEnabled()) redirect("/");
   const actor = await requireAction("manage_team");
   const query = await searchParams;
   const people = await prisma.user.findMany({ orderBy: { createdAt: "asc" } });

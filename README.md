@@ -6,21 +6,19 @@ The fund name is a placeholder until you set `FUND_NAME`. Every figure in the ex
 
 ## What you can do
 
-- Sign in with a magic link. Only emails an admin has invited are accepted. There is no public sign-up.
-- Roles are admin, editor, and viewer. New invites default to viewer. An admin can choose editor or admin at invite time, and can change roles later.
-- Editors can add and edit holdings, import CSV, update prices, record snapshots, and write or publish both article sections. They cannot manage people or API tokens.
-- Viewers can read the book and published articles. Drafts stay hidden.
-- Admins can do all of that, plus invites, roles, and API tokens.
+- Sign in with the shared access code in `SITE_ACCESS_CODE`. That session is the owner admin and is the only editor. There is no public sign-up.
+- The owner can edit the book, publish market reviews and research, and create API tokens.
+- Per-user magic links, roles, and invites stay in the code behind `ACCOUNTS_ENABLED=false`. Set that to `true` later to turn them back on.
 
 ## Stack
 
-Next.js, Prisma with Postgres, Auth.js magic links, and Tailwind. Local development uses the Postgres service in `docker-compose.yml`. Production runs on Vercel with Neon (or Vercel’s Neon integration) and Resend. See [DEPLOY.md](DEPLOY.md).
+Next.js, Prisma with Postgres, a signed access-code cookie, and Tailwind. Local development uses the Postgres service in `docker-compose.yml`. Production is Vercel Hobby from GitHub with Neon. See [DEPLOY.md](DEPLOY.md).
 
 ## Local setup
 
 ```bash
 cp .env.example .env
-# Set AUTH_SECRET (openssl rand -base64 32) and ADMIN_EMAIL.
+# Set AUTH_SECRET (openssl rand -base64 32) and SITE_ACCESS_CODE (openssl rand -base64 24).
 docker compose up -d --wait
 npm install
 npx prisma migrate deploy
@@ -32,15 +30,9 @@ npm run dev
 
 The desk listens on [http://127.0.0.1:4321](http://127.0.0.1:4321).
 
-With `EMAIL_PROVIDER=console`, the sign-in link is printed in the server log and, in development, on the check-email page. The seed invites:
+Open the desk and enter `SITE_ACCESS_CODE`. The session signs in as `ADMIN_EMAIL`. With the example book turned on, the seed also creates `editor@example.com` and `viewer@example.com` for when accounts are enabled later. Those addresses cannot sign in while `ACCOUNTS_ENABLED` is false.
 
-| Email | Role |
-| --- | --- |
-| `ADMIN_EMAIL` | Admin |
-| `editor@example.com` | Editor (example) |
-| `viewer@example.com` | Viewer (example) |
-
-No passwords are stored. Set `SEED_EXAMPLE_DATA=false` before seeding if you want an empty book with only the admin.
+No access code is stored in the repo. Set `SEED_EXAMPLE_DATA=false` before seeding if you want an empty book with only the admin.
 
 ## Book
 
@@ -111,14 +103,16 @@ The tests cover the role matrix, the invite gate (unknown and revoked emails are
 | `DATABASE_URL` | Yes | Pooled Postgres URL. Locally this is the Docker database. On Vercel it is the Neon pooler URL. |
 | `DATABASE_URL_UNPOOLED` | Yes | Direct Postgres URL for Prisma Migrate. Locally it can match `DATABASE_URL`. |
 | `AUTH_SECRET` | Yes | Auth.js session secret and API token pepper. `openssl rand -base64 32`. |
-| `AUTH_URL` | Yes | Public origin used in magic links, such as `https://desk.example.com`. |
+| `SITE_ACCESS_CODE` | Yes | Shared gate. `openssl rand -base64 24`. Never commit the real value. |
+| `AUTH_URL` | When accounts return | Public origin, such as `https://desk.example.com`. |
 | `AUTH_TRUST_HOST` | Deploy | Set `true` behind a proxy. |
-| `ADMIN_EMAIL` | Yes for seed | First admin. No password. |
+| `ADMIN_EMAIL` | Yes for seed | Owner admin created by the seed. Use `kobzar.z05@gmail.com`. |
+| `ACCOUNTS_ENABLED` | No | `false` keeps magic links and invites off. |
 | `ADMIN_NAME` | No | Display name for that admin. |
 | `FUND_NAME` | No | Shown in the desk. Defaults to `[Fund Name]`. |
-| `EMAIL_PROVIDER` | No | `console` (default), `resend`, or `smtp`. |
-| `EMAIL_FROM` | Yes for real mail | From address. |
-| `RESEND_API_KEY` | With Resend | Resend API key. |
+| `EMAIL_PROVIDER` | Only if accounts are on | `console`, `resend`, or `smtp`. Not used for the access-code gate. |
+| `EMAIL_FROM` | Only if accounts are on | From address. |
+| `RESEND_API_KEY` | Only if accounts are on and provider is resend | Resend API key. |
 | `SMTP_HOST` | With SMTP | SMTP host. |
 | `SMTP_PORT` | No | Default `587`. Port `465` uses TLS. |
 | `SMTP_USER` | No | SMTP username. |
@@ -129,10 +123,10 @@ Do not commit `.env`. `.env.example` contains placeholders only.
 
 ## Deploy
 
-Production is Vercel, deployed from Origin, with Neon Postgres and Resend. The ordered steps, including every environment variable, are in [DEPLOY.md](DEPLOY.md). Do not mirror this repo to GitHub.
+Production is Vercel Hobby, deployed from GitHub, with Neon Postgres. The ordered steps, including every environment variable, are in [DEPLOY.md](DEPLOY.md).
 
 `npm run build` generates the Prisma client, applies migrations, seeds, and builds Next.js. On Vercel, `SEED_EXAMPLE_DATA=false` makes that seed create only the `ADMIN_EMAIL` admin.
 
 ## Roles, again
 
-The owner stays admin by being the `ADMIN_EMAIL` user. Invite the editor from Team and choose Editor in the role field. That person can maintain the book and both article sections, and cannot open Team or API tokens.
+The owner stays admin by being the `ADMIN_EMAIL` user. The access-code session uses that account. Inviting a separate editor waits until `ACCOUNTS_ENABLED=true`.
