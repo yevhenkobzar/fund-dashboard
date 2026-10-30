@@ -1,6 +1,7 @@
 import { PrismaClient, type AssetClass, type Sleeve, type TxType } from "@prisma/client";
 import { deriveBook, valueBook, type LedgerTx } from "../src/lib/ledger/derive";
 import { toStorage } from "../src/lib/money";
+import { shouldSeedExampleData } from "../src/lib/seed-policy";
 
 const prisma = new PrismaClient();
 
@@ -80,7 +81,7 @@ async function main() {
     },
   });
 
-  if ((process.env.SEED_EXAMPLE_DATA ?? "true").toLowerCase() === "false") {
+  if (!shouldSeedExampleData()) {
     console.log(`Admin ensured: ${admin.email}. Example book skipped.`);
     return;
   }

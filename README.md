@@ -14,18 +14,21 @@ The fund name is a placeholder until you set `FUND_NAME`. Every figure in the ex
 
 ## Stack
 
-Next.js, Prisma with SQLite locally, Auth.js magic links, and Tailwind. Email can go through the console (local), Resend, or SMTP.
+Next.js, Prisma with Postgres, Auth.js magic links, and Tailwind. Local development uses the Postgres service in `docker-compose.yml`. Production runs on Vercel with Neon (or Vercel’s Neon integration) and Resend. See [DEPLOY.md](DEPLOY.md).
 
 ## Local setup
 
 ```bash
 cp .env.example .env
 # Set AUTH_SECRET (openssl rand -base64 32) and ADMIN_EMAIL.
+docker compose up -d --wait
 npm install
-npx prisma migrate dev
+npx prisma migrate deploy
 npm run db:seed
 npm run dev
 ```
+
+`npm run db:setup` does the Docker start, migrate, and seed in one step.
 
 The desk listens on [http://127.0.0.1:4321](http://127.0.0.1:4321).
 
@@ -105,7 +108,8 @@ The tests cover the role matrix, the invite gate (unknown and revoked emails are
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | Yes | SQLite locally (`file:./dev.db`, path relative to `prisma/`). Postgres URL when deployed. |
+| `DATABASE_URL` | Yes | Pooled Postgres URL. Locally this is the Docker database. On Vercel it is the Neon pooler URL. |
+| `DATABASE_URL_UNPOOLED` | Yes | Direct Postgres URL for Prisma Migrate. Locally it can match `DATABASE_URL`. |
 | `AUTH_SECRET` | Yes | Auth.js session secret and API token pepper. `openssl rand -base64 32`. |
 | `AUTH_URL` | Yes | Public origin used in magic links, such as `https://desk.example.com`. |
 | `AUTH_TRUST_HOST` | Deploy | Set `true` behind a proxy. |
@@ -119,29 +123,15 @@ The tests cover the role matrix, the invite gate (unknown and revoked emails are
 | `SMTP_PORT` | No | Default `587`. Port `465` uses TLS. |
 | `SMTP_USER` | No | SMTP username. |
 | `SMTP_PASSWORD` | No | SMTP password. |
-| `SEED_EXAMPLE_DATA` | No | `true` loads the illustrative book. `false` seeds only the admin. |
+| `SEED_EXAMPLE_DATA` | No | Unset locally loads the illustrative book. `false` on Vercel seeds only the admin. |
 
 Do not commit `.env`. `.env.example` contains placeholders only.
 
 ## Deploy
 
-The app is a Node server. SQLite is for a single machine with a persistent disk. For a hosted deploy, use Postgres:
+Production is Vercel, deployed from Origin, with Neon Postgres and Resend. The ordered steps, including every environment variable, are in [DEPLOY.md](DEPLOY.md). Do not mirror this repo to GitHub.
 
-1. In `prisma/schema.prisma`, set `provider = "postgresql"`.
-2. Set `DATABASE_URL` to the Postgres connection string.
-3. Set `AUTH_SECRET`, `AUTH_URL`, `AUTH_TRUST_HOST=true`, `FUND_NAME`, and a real email provider. Console delivery will not reach anyone off the server.
-4. Build and migrate:
-
-```bash
-npx prisma migrate deploy
-npm run db:seed
-npm run build
-npm start
-```
-
-`db:seed` creates the admin from `ADMIN_EMAIL`. Leave `SEED_EXAMPLE_DATA=false` in production unless you want the illustrative book.
-
-On Vercel or a similar host, set the same environment variables, use a Postgres add-on, and make the build command `prisma generate && prisma migrate deploy && next build`. SQLite on a serverless disk will not keep the book.
+`npm run build` generates the Prisma client, applies migrations, seeds, and builds Next.js. On Vercel, `SEED_EXAMPLE_DATA=false` makes that seed create only the `ADMIN_EMAIL` admin.
 
 ## Roles, again
 

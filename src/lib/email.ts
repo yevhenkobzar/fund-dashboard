@@ -26,8 +26,15 @@ function escapeHtml(value: string) {
     .replaceAll('"', "&quot;");
 }
 
+function emailProvider() {
+  const configured = process.env.EMAIL_PROVIDER?.trim().toLowerCase();
+  if (configured) return configured;
+  if (process.env.VERCEL || process.env.NODE_ENV === "production") return "";
+  return "console";
+}
+
 export async function sendMagicLink({ to, url }: { to: string; url: string }) {
-  const provider = (process.env.EMAIL_PROVIDER ?? "console").toLowerCase();
+  const provider = emailProvider();
   const from = process.env.EMAIL_FROM || "desk@example.com";
   const body = message(url);
 
@@ -55,10 +62,12 @@ export async function sendMagicLink({ to, url }: { to: string; url: string }) {
     return;
   }
 
-  console.info(`\n[fund-desk] Magic link for ${to}\n${url}\n`);
-  if (process.env.NODE_ENV !== "production") {
-    globalForDev.__devMagicLink = { email: to.toLowerCase(), url, at: Date.now() };
+  if (process.env.VERCEL || process.env.NODE_ENV === "production") {
+    throw new Error("Set EMAIL_PROVIDER=resend and RESEND_API_KEY so magic links can be delivered.");
   }
+
+  console.info(`\n[fund-desk] Magic link for ${to}\n${url}\n`);
+  globalForDev.__devMagicLink = { email: to.toLowerCase(), url, at: Date.now() };
 }
 
 export function readDevMagicLink(email: string): string | null {
